@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/aiappsgbb/template/refs/heads/main/.github/ip-metadata.schema.json",
+  "name": "ARGUS",
+  "description": "Automated Retrieval and GPT Understanding System by utilizing Azure Document Intelligence in combination with GPT models.",
+  "maturity": "Bronze",
+  "region": "EMEA",
+  "industry": "Cross",
+  "owner": "kmavrodis",
+  "pattern": [
+    "OCR",
+    "Document Intelligence"
+  ],
+  "services": [
+    "Azure Container Apps",
+    "Azure OpenAI",
+    "Azure Cosmos DB",
+    "Azure Key Vault",
+    "Azure Monitor",
+    "Azure Application Insights",
+    "Azure Storage",
+    "Azure Document Intelligence"
+  ],
+  "tags": [
+    "azd",
+    "container-apps",
+    "ai",
+    "ocr"
+  ],
+  "version": "1.0.0",
+  "createdDate": "2025-10-23",
+  "lastUpdated": "2025-10-23",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/aiappsgbb/ARGUS",
+    "branch": "main"
+  },
+  "documentation": {
+    "readme": "https://github.com/aiappsgbb/ARGUS/blob/main/README.md",
+    "architecture": "https://github.com/aiappsgbb/ARGUS/blob/main/docs/ARCHITECTURE.md"
+  },
+  "contacts": {
+    "technical": [
+      "kmavrodis"
+    ],
+    "business": [
+      "kmavrodis"
+    ]
+  }
+}
