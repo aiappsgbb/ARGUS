@@ -102,18 +102,18 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            $rgExists = az group exists --name "$Env:AZURE_RESOURCE_GROUP" --subscription "$Env:AZURE_SUBSCRIPTION_ID" | ConvertFrom-Json
+            RG_EXISTS=$(az group exists --name "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION_ID")
             
-            if ($rgExists) {
-              Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' already exists"
-            } else {
-              Write-Output "Creating resource group '$Env:AZURE_RESOURCE_GROUP'..."
-              az group create `
-                --name "$Env:AZURE_RESOURCE_GROUP" `
-                --location "$Env:AZURE_LOCATION" `
-                --subscription "$Env:AZURE_SUBSCRIPTION_ID"
-              Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' created successfully"
-            }
+            if [ "$RG_EXISTS" = "true" ]; then
+              echo "Resource group '$AZURE_RESOURCE_GROUP' already exists"
+            else
+              echo "Creating resource group '$AZURE_RESOURCE_GROUP'..."
+              az group create \
+                --name "$AZURE_RESOURCE_GROUP" \
+                --location "$AZURE_LOCATION" \
+                --subscription "$AZURE_SUBSCRIPTION_ID"
+              echo "Resource group '$AZURE_RESOURCE_GROUP' created successfully"
+            fi
         env:
           AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
           AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
