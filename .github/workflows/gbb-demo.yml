@@ -90,29 +90,34 @@ jobs:
       # azd sets up Federated Credential by default. You can remove this step if you are using Client Credentials
       - name: Log in with Azure (Federated Credentials)
         if: ${{ env.AZURE_CLIENT_ID != '' }}
-        run: |
-          azd auth login `
-            --client-id "$Env:AZURE_CLIENT_ID" `
-            --federated-credential-provider "github" `
-            --tenant-id "$Env:AZURE_TENANT_ID"
-        shell: pwsh
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Create Resource Group (if needed)
         if: ${{ env.TARGET_SCOPE == 'resourceGroup' }}
-        run: |
-          $rgExists = az group exists --name "$Env:AZURE_RESOURCE_GROUP" --subscription "$Env:AZURE_SUBSCRIPTION_ID" | ConvertFrom-Json
-          
-          if ($rgExists) {
-            Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' already exists"
-          } else {
-            Write-Output "Creating resource group '$Env:AZURE_RESOURCE_GROUP'..."
-            az group create `
-              --name "$Env:AZURE_RESOURCE_GROUP" `
-              --location "$Env:AZURE_LOCATION" `
-              --subscription "$Env:AZURE_SUBSCRIPTION_ID"
-            Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' created successfully"
-          }
-        shell: pwsh
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            $rgExists = az group exists --name "$Env:AZURE_RESOURCE_GROUP" --subscription "$Env:AZURE_SUBSCRIPTION_ID" | ConvertFrom-Json
+            
+            if ($rgExists) {
+              Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' already exists"
+            } else {
+              Write-Output "Creating resource group '$Env:AZURE_RESOURCE_GROUP'..."
+              az group create `
+                --name "$Env:AZURE_RESOURCE_GROUP" `
+                --location "$Env:AZURE_LOCATION" `
+                --subscription "$Env:AZURE_SUBSCRIPTION_ID"
+              Write-Output "Resource group '$Env:AZURE_RESOURCE_GROUP' created successfully"
+            }
+        env:
+          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
+          AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Provision Infrastructure (Subscription Scope)
         if: ${{ env.TARGET_SCOPE == 'subscription' }}
