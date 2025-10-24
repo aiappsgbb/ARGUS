@@ -1,8 +1,7 @@
 {
-  "$schema": "https://raw.githubusercontent.com/aiappsgbb/template/refs/heads/main/.github/ip-metadata.schema.json",
   "name": "ARGUS",
   "description": "Automated Retrieval and GPT Understanding System by utilizing Azure Document Intelligence in combination with GPT models.",
-  "maturity": "Bronze",
+  "maturity": "Silver",
   "region": "EMEA",
   "industry": "Cross",
   "owner": "kmavrodis",
