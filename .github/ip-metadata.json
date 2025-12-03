@@ -35,7 +35,8 @@
   },
   "documentation": {
     "readme": "https://github.com/aiappsgbb/ARGUS/blob/main/README.md",
-    "architecture": "https://github.com/aiappsgbb/ARGUS/blob/main/docs/ARCHITECTURE.md"
+    "architecture": "https://github.com/aiappsgbb/ARGUS/blob/main/docs/ARCHITECTURE.md",
+    "demo": "https://ca-frontend-xbdm4kcvwkm7k.redstone-1f4228eb.eastus2.azurecontainerapps.io"
   },
   "contacts": {
     "technical": [
