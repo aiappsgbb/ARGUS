@@ -1,6 +1,6 @@
 name: argus
 metadata:
-  template: containerapp-python@latest
+  template: argus@1.0.0
 infra:
   provider: bicep
   path: infra
