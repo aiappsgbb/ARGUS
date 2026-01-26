@@ -154,11 +154,21 @@ Retrieve current system configuration from Cosmos DB including datasets, prompts
           "invoice_number": {"type": "string"},
           "total_amount": {"type": "number"}
         }
+      },
+      "processing_options": {
+        "include_ocr": true,
+        "include_images": true,
+        "enable_summary": true,
+        "enable_evaluation": true,
+        "ocr_provider": "azure"
       }
     },
     "medical-dataset": {
       "system_prompt": "Extract medical information...",
-      "output_schema": {...}
+      "output_schema": {...},
+      "processing_options": {
+        "ocr_provider": "mistral"
+      }
     }
   }
 }
@@ -221,7 +231,114 @@ Force refresh configuration by reloading demo datasets from filesystem.
 
 ---
 
-## 🔄 Logic App Concurrency Management
+## � Dataset Management
+
+### GET `/api/datasets`
+**List Datasets**
+
+Get all available dataset configurations.
+
+**Response:**
+```json
+{
+  "datasets": [
+    {
+      "name": "default-dataset",
+      "system_prompt_preview": "Extract all data from the document...",
+      "schema_fields": ["invoice_number", "vendor_name", "total_amount"],
+      "max_pages_per_chunk": 10
+    },
+    {
+      "name": "medical-dataset",
+      "system_prompt_preview": "Extract medical information...",
+      "schema_fields": ["patient_name", "diagnosis", "medications"],
+      "max_pages_per_chunk": 5
+    }
+  ]
+}
+```
+
+### POST `/api/datasets`
+**Create Dataset**
+
+Create a new dataset configuration for document processing.
+
+**Request Body:**
+```json
+{
+  "dataset_name": "purchase-orders",
+  "system_prompt": "Extract purchase order information including vendor details, line items, quantities, prices, and total amounts. Return data in the specified JSON format.",
+  "output_schema": {
+    "vendor_name": "Name of the vendor/supplier",
+    "po_number": "Purchase order number",
+    "order_date": "Date of the order (YYYY-MM-DD format)",
+    "line_items": [
+      {
+        "description": "Item description",
+        "quantity": "Number of units",
+        "unit_price": "Price per unit",
+        "total": "Line item total"
+      }
+    ],
+    "subtotal": "Sum of all line items",
+    "tax": "Tax amount if applicable",
+    "total_amount": "Final total including tax"
+  },
+  "max_pages_per_chunk": 10
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "dataset_name": "purchase-orders",
+  "message": "Dataset 'purchase-orders' created successfully",
+  "configuration": {
+    "system_prompt_length": 156,
+    "output_schema_fields": ["vendor_name", "po_number", "order_date", "line_items", "subtotal", "tax", "total_amount"],
+    "max_pages_per_chunk": 10
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "detail": "Dataset name must contain only alphanumeric characters and hyphens"
+}
+```
+
+```json
+{
+  "detail": "Dataset 'purchase-orders' already exists. Use update_dataset to modify it."
+}
+```
+
+### GET `/api/datasets/{dataset_name}/documents`
+**List Dataset Documents**
+
+Get all documents in a specific dataset.
+
+**Response:**
+```json
+{
+  "dataset": "default-dataset",
+  "documents": [
+    {
+      "id": "default-dataset__invoice-001.pdf",
+      "filename": "invoice-001.pdf",
+      "status": "completed",
+      "processed_at": "2025-07-17T10:30:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+## �🔄 Logic App Concurrency Management
 
 ### GET `/api/concurrency`
 **Get Concurrency Settings**
@@ -769,10 +886,59 @@ For production file uploads, you need to:
       "system_prompt": "string",
       "output_schema": "object",
       "max_pages": "number",
-      "options": "object"
+      "processing_options": {
+        "include_ocr": "boolean",
+        "include_images": "boolean",
+        "enable_summary": "boolean",
+        "enable_evaluation": "boolean",
+        "ocr_provider": "string (azure|mistral)"
+      }
     }
   }
 }
+```
+
+### OCR Provider Configuration
+
+ARGUS supports two OCR providers for document text extraction:
+
+1. **Azure Document Intelligence** (default)
+   - Uses Azure's Document Intelligence service
+   - Requires `DOCUMENT_INTELLIGENCE_ENDPOINT` environment variable
+   - Configured with `"ocr_provider": "azure"`
+
+2. **Mistral Document AI** (alternative)
+   - Uses Mistral's Document AI API
+   - Requires `MISTRAL_DOC_AI_ENDPOINT` and `MISTRAL_DOC_AI_KEY` environment variables
+   - Configured with `"ocr_provider": "mistral"`
+   - Supports base64-encoded PDFs and images
+   - Can use structured extraction with bbox annotation
+
+**Example Configuration with Mistral:**
+```json
+{
+  "id": "configuration",
+  "partitionKey": "configuration",
+  "datasets": {
+    "medical-dataset": {
+      "system_prompt": "Extract medical information...",
+      "output_schema": {...},
+      "processing_options": {
+        "include_ocr": true,
+        "include_images": true,
+        "enable_summary": true,
+        "enable_evaluation": true,
+        "ocr_provider": "mistral"
+      }
+    }
+  }
+}
+```
+
+**Environment Variables Required for Mistral:**
+```bash
+MISTRAL_DOC_AI_ENDPOINT=https://your-endpoint.services.ai.azure.com/providers/mistral/azure/ocr
+MISTRAL_DOC_AI_KEY=your-mistral-api-key
 ```
 
 ### Event Grid Event Model
@@ -857,6 +1023,244 @@ For production file uploads, you need to:
 - `400`: "document_id and message are required" - Missing required fields
 - `400`: "No extracted data available for this document" - Document hasn't been processed
 - `404`: "Document not found" - Invalid document ID
+
+---
+
+## 🤖 MCP (Model Context Protocol) Endpoints
+
+ARGUS provides MCP support for AI assistant integration, enabling tools like GitHub Copilot, Claude, and other MCP-compatible clients to interact with your document intelligence platform.
+
+### Transport
+
+ARGUS uses **Streamable HTTP** transport for MCP communication. This is the modern MCP standard (as of the 2025-03-26 protocol revision) which provides:
+- Single endpoint for all MCP communication
+- Better reliability and scalability
+- Proper session handling with `Mcp-Session-Id` header
+
+### GET `/mcp/info`
+**MCP Server Information**
+
+Get information about the MCP server and available tools.
+
+**Response:**
+```json
+{
+  "name": "argus",
+  "description": "ARGUS Document Intelligence MCP Server",
+  "version": "1.0.0",
+  "transport": "streamable-http",
+  "endpoints": {
+    "mcp": "/mcp"
+  },
+  "tools": [
+    {"name": "argus_list_documents", "description": "List all processed documents"},
+    {"name": "argus_get_document", "description": "Get detailed document information"},
+    {"name": "argus_chat_with_document", "description": "Ask questions about a document"},
+    {"name": "argus_list_datasets", "description": "List available dataset configurations"},
+    {"name": "argus_get_dataset_config", "description": "Get dataset configuration details"},
+    {"name": "argus_create_dataset", "description": "Create a new dataset configuration"},
+    {"name": "argus_process_document_url", "description": "Queue document for processing"},
+    {"name": "argus_get_extraction", "description": "Get extracted data from document"},
+    {"name": "argus_search_documents", "description": "Search documents by keyword"},
+    {"name": "argus_get_upload_url", "description": "Get a pre-signed SAS URL for direct blob upload"}
+  ],
+  "configuration_example": {
+    "mcpServers": {
+      "argus": {
+        "url": "https://<your-backend-url>/mcp"
+      }
+    }
+  }
+}
+```
+
+> **Note**: The `url` in `configuration_example` is dynamically generated based on the request origin. The example above shows a placeholder.
+```
+
+### `/mcp`
+**Streamable HTTP MCP Endpoint**
+
+This is the main MCP endpoint that handles all protocol communication. It supports both GET and POST methods:
+
+- **GET**: Returns a streaming response for server-to-client messages
+- **POST**: Accepts MCP protocol messages (JSON-RPC format)
+
+**Headers:**
+- `Content-Type: application/json` (for POST requests)
+- `Mcp-Session-Id` (optional): Session identifier for stateful interactions
+
+**Example Tool Call (POST):**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "argus_list_documents",
+    "arguments": {
+      "dataset": "default-dataset",
+      "limit": 10
+    }
+  }
+}
+```
+
+### MCP Tools Reference
+
+#### `argus_list_documents`
+List all processed documents with optional filtering.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `dataset` | string | No | Filter by dataset name |
+| `status` | string | No | Filter by status (pending, processing, completed, failed) |
+| `limit` | integer | No | Maximum number of documents to return (default: 50) |
+
+#### `argus_get_document`
+Get detailed information about a specific document.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `document_id` | string | Yes | The document ID to retrieve |
+
+#### `argus_chat_with_document`
+Ask natural language questions about a document.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `document_id` | string | Yes | The document to chat about |
+| `message` | string | Yes | Your question or message |
+| `chat_history` | array | No | Previous conversation messages |
+
+#### `argus_list_datasets`
+List all available dataset configurations.
+
+**Arguments:** None
+
+#### `argus_get_dataset_config`
+Get the configuration details for a specific dataset.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `dataset_name` | string | Yes | Name of the dataset |
+
+#### `argus_process_document_url`
+Queue a document from blob storage for processing.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `blob_url` | string | Yes | Full Azure Blob Storage URL |
+| `dataset` | string | No | Dataset to use (default: "default-dataset") |
+
+#### `argus_get_extraction`
+Get the extracted structured data from a document.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `document_id` | string | Yes | The document ID |
+
+#### `argus_search_documents`
+Search documents by keyword across content and metadata.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `query` | string | Yes | Search keyword or phrase |
+| `dataset` | string | No | Limit search to specific dataset |
+| `limit` | integer | No | Maximum results (default: 20) |
+
+#### `argus_get_upload_url`
+Get a pre-signed SAS URL for direct document upload to Azure Blob Storage.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `filename` | string | Yes | Name for the uploaded file |
+| `dataset` | string | No | Target dataset (default: "default-dataset") |
+
+**Response:**
+```json
+{
+  "upload_url": "https://storage.blob.core.windows.net/datasets/...",
+  "method": "PUT",
+  "headers": {
+    "x-ms-blob-type": "BlockBlob",
+    "Content-Type": "application/pdf"
+  },
+  "filename": "invoice.pdf",
+  "dataset": "default-dataset",
+  "blob_path": "default-dataset/invoice.pdf",
+  "expires_in": "1 hour",
+  "instructions": [
+    "Upload your file using HTTP PUT to the upload_url",
+    "Set header 'x-ms-blob-type: BlockBlob'",
+    "Set header 'Content-Type: application/pdf'",
+    "The file body should be the raw file content (not base64)",
+    "After upload, ARGUS will automatically process the document"
+  ]
+}
+```
+
+#### `argus_create_dataset`
+Create a new dataset configuration for document processing.
+
+**Arguments:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `dataset_name` | string | Yes | Name for the dataset (alphanumeric and hyphens only, 2-50 chars) |
+| `system_prompt` | string | Yes | System prompt guiding document extraction (min 10 chars) |
+| `output_schema` | object | Yes | JSON object defining the expected extraction structure |
+| `max_pages_per_chunk` | integer | No | Maximum pages per processing chunk (default: 10) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "dataset_name": "purchase-orders",
+  "message": "Dataset 'purchase-orders' created successfully",
+  "configuration": {
+    "system_prompt_length": 245,
+    "output_schema_fields": ["vendor_name", "order_number", "items", "total_amount"],
+    "max_pages_per_chunk": 10
+  },
+  "next_steps": [
+    "Upload documents to this dataset using argus_get_upload_url with dataset='purchase-orders'",
+    "Or list documents using argus_list_documents with dataset='purchase-orders'"
+  ]
+}
+```
+
+### MCP Client Configuration
+
+**VS Code / GitHub Copilot:**
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "url": "https://<your-backend-url>/mcp"
+    }
+  }
+}
+```
+
+> **Tip**: Get your backend URL from the ARGUS frontend MCP page, or run `azd show` after deployment.
+
+**Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "url": "https://<your-backend-url>/mcp"
+    }
+  }
+}
+```
 
 ---
 

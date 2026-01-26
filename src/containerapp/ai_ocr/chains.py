@@ -217,10 +217,7 @@ def get_structured_data(markdown_content: str, prompt: str, json_schema: str, im
     try:
         response = client.chat.completions.create(
             model=config["openai_model_deployment"],
-            messages=messages,
-            seed=0,
-            temperature=0.1,  # Lower temperature for more consistent output
-            response_format={"type": "json_object"} if "gpt-4" in config["openai_model_deployment"].lower() else None
+            messages=messages
         )
         
         raw_content = response.choices[0].message.content
@@ -424,9 +421,7 @@ def perform_gpt_evaluation_and_enrichment(images: List[str], extracted_data: Dic
         response = client.chat.completions.create(
             model=config["openai_model_deployment"],
             messages=messages,
-            seed=0,
-            temperature=0.1,  # Lower temperature for more consistent output
-            response_format={"type": "json_object"} if "gpt-4" in config["openai_model_deployment"].lower() else None
+            seed=0
         )
         
         raw_content = response.choices[0].message.content

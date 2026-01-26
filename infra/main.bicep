@@ -111,13 +111,26 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-05-01' = {
   properties: {
     accessTier: 'Hot'
   }
-  tags: commonTags
+  tags: union(commonTags, { SecurityControl: 'Ignore' })
 }
 
 // Blob Service
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2022-05-01' = {
   parent: storageAccount
   name: 'default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: ['*']
+          allowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD', 'OPTIONS']
+          allowedHeaders: ['*']
+          exposedHeaders: ['*']
+          maxAgeInSeconds: 3600
+        }
+      ]
+    }
+  }
 }
 
 // Blob Container
@@ -152,7 +165,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
       }
     ]
   }
-  tags: commonTags
+  tags: union(commonTags, { SecurityControl: 'Ignore' })
 }
 
 // Cosmos DB Database
@@ -235,7 +248,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8000
         corsPolicy: {
           allowedOrigins: ['*']
-          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
           allowedHeaders: ['*']
           allowCredentials: false
         }
@@ -374,10 +387,10 @@ resource frontendContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 8501
+        targetPort: 3000
         corsPolicy: {
           allowedOrigins: ['*']
-          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
           allowedHeaders: ['*']
           allowCredentials: false
         }
@@ -672,6 +685,11 @@ resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
                   }
                 }
               }
+            }
+          }
+          runtimeConfiguration: {
+            concurrency: {
+              runs: 5
             }
           }
         }
